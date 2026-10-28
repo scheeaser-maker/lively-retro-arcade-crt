@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Star Sentry CRT</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+  body.centre { background: radial-gradient(ellipse at center, #1c1c1f 0%, #0b0b0d 50%, #050506 100%); }
+  #bezel { position: absolute; display: none; background: #020202; border-radius: 8px;
+           box-shadow: 0 0 0 1px #151517, 0 20px 60px rgba(0,0,0,.7); }
+  body.centre #bezel { display: block; }
+  #crt { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="bezel"></div>
+<canvas id="crt"></canvas>
+<script>
+'use strict';
+
+/* ================= Options (pilotées par Lively) ================= */
+const opts = { mode: 0, bright: 1.0, halo: 1.0, curv: 0.5, gel: [0.22, 1.0, 0.38], refl: 1, speed: 1.0 };
+
+function hexToRgb(h) {
+  h = String(h).replace('#', '');
+  return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16) / 255);
+}
+
+// Appelée par Lively au chargement puis à chaque changement de réglage
+function livelyPropertyListener(name, val) {
+  switch (name) {
+    case 'affichage':    if (opts.mode !== val) { opts.mode = val; setupMode(); } break;
+    case 'luminosite':   opts.bright = val / 100; break;
+    case 'halo':         opts.halo = val / 100; break;
+    case 'courbure':     opts.curv = val / 100; break;
+    case 'couleurBande': opts.gel = hexToRgb(val); break;
+    case 'reflet':       opts.refl = val ? 1 : 0; break;
+    case 'vitesse':      opts.speed = val / 100; break;
+  }
+}
+
+/* ================= Police 5x7 et sprites originaux ================= */
+const F = {
+ A:[" ### ","#   #","#   #","#####","#   #","#   #","#   #"],
+ C:[" ####","#    ","#    ","#    ","#    ","#    "," ####"],
+ D:["#### ","#   #","#   #","#   #","#   #","#   #","#### "],
+ E:["#####","#    ","#    ","#### ","#    ","#    ","#####"],
+ G:[" ####","#    ","#    ","# ###","#   #","#   #"," ####"],
+ I:["#####","  #  ","  #  ","  #  ","  #  ","  #  ","#####"],
+ M:["#   #","## ##","# # #","# # #","#   #","#   #","#   #"],
+ O:[" ### ","#   #","#   #","#   #","#   #","#   #"," ### "],
+ P:["#### ","#   #","#   #","#### ","#    ","#    ","#    "],
+ R:["#### ","#   #","#   #","#### ","# #  ","#  # ","#   #"],
+ S:[" ####","#    ","#    "," ### ","    #","    #","#### "],
+ T:["#####","  #  ","  #  ","  #  ","  #  ","  #  ","  #  "],
+ V:["#   #","#   #","#   #","#   #","#   #"," # # ","  #  "],
+ '0':[" ### ","#   #","#  ##","# # #","##  #","#   #"," ### "],
+ '1':["  #  "," ##  ","  #  ","  #  ","  #  ","  #  "," ### "],
+ '2':[" ### ","#   #","    #","   # ","  #  "," #   ","#####"],
+ '3':["#####","   # ","  #  ","   # ","    #","#   #"," ### "],
+ '4':["   # ","  ## "," # # ","#  # ","#####","   # ","   # "],
+ '5':["#####","#    ","#### ","    #","    #","#   #"," ### "],
+ '6':["  ## "," #   ","#    ","#### ","#   #","#   #"," ### "],
+ '7':["#####","    #","   # ","  #  "," #   "," #   "," #   "],
+ '8':[" ### ","#   #","#   #"," ### ","#   #","#   #"," ### "],
+ '9':[" ### ","#   #","#   #"," ####","    #","   # "," ##  "],
+ ' ':["     ","     ","     ","     ","     ","     ","     "],
+};
+const PRISM = [
+ ["     #     ","    ###    ","   #####   ","  ##   ##  "," ##  #  ## ","  ##   ##  ","   #####   ","  #  #  #  "],
+ ["     #     ","    ###    ","   #####   ","  ##   ##  "," ## ### ## ","  ##   ##  ","   #####   "," #   #   # "]];
+const BOWTIE = [
+ ["##       ##","###     ###","####   ####","##### #####","##### #####","####   ####","###     ###","##       ##"],
+ ["#         #","##       ##","####   ####","###########","###########","####   ####","##       ##","#         #"]];
+const MANTA = [
+ ["#           #","##   ###   ##"," ########### ","  ## # # ##  ","   #######   ","    #   #    ","   #     #   "],
+ ["             ","#    ###    #","############# ","  ## # # ##  ","   #######   ","    #   #    ","    #   #    "]];
+const KINDS = [PRISM, BOWTIE, MANTA, MANTA];
+const PTS = [30, 20, 10, 10];
+const SHIP = ["      #      ","      #      ","     ###     ","     # #     ","    ## ##    ",
+              "   ### ###   ","  #########  "," ## ##### ## ","##    #    ##"];
+const MINI = ["   #   ","  ###  "," ## ## ","#######","#  #  #"];
+const BURST = ["#    #    #"," #   #   # ","  #     #  ","     #     ","### ### ###",
+               "     #     ","  #     #  "," #   #   # ","#    #    #"];
+const BOLT = [["#  "," # ","  #"," # ","#  "," # ","  #"], ["  #"," # ","#  "," # ","  #"," # ","#  "]];
+
+/* ================= Écran logique ================= */
+let W = 224, H = 256, GREEN_TOP, GROUND, PY, COLS, SP, Y0, RG, VS;
+let fb, img, stars = [], groundH = [];
+const cS = document.createElement('canvas'), xS = cS.getContext('2d');
+const blurC = [1, 4, 12].map(r => { const c = document.createElement('canvas'); return { c, x: c.getContext('2d'), r }; });
+
+function px(x, y, v) {
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  const i = y * W + x; if (v > fb[i]) fb[i] = v;
+}
+function blit(spr, x, y, v = 1) {
+  x = Math.round(x); y = Math.round(y);
+  for (let j = 0; j < spr.length; j++) { const r = spr[j];
+    for (let i = 0; i < r.length; i++) if (r[i] === '#') px(x + i, y + j, v); }
+}
+function text(t, x, y) { for (let k = 0; k < t.length; k++) blit(F[t[k]] || F[' '], x + k * 6, y); }
+const pad5 = n => String(Math.max(0, n) % 100000).padStart(5, '0');
+
+/* ================= Rendu WebGL (tube cathodique) ================= */
+const cv = document.getElementById('crt');
+const gl = cv.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false });
+const VSH = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.0,1.0);}';
+const FSH = `precision highp float;
+uniform sampler2D uS,uA,uB,uC; uniform vec2 uL; uniform vec4 uRect;
+uniform float uBright,uHalo,uCurv,uRefl,uGreen,uTime; uniform vec3 uGel;
+void main(){
+  vec2 uv=(gl_FragCoord.xy-uRect.xy)/uRect.zw; uv.y=1.0-uv.y;
+  vec2 p=uv*2.0-1.0; float r2=dot(p,p);
+  vec2 q=p*(1.0+uCurv*0.14*r2);
+  float m=clamp((1.0-(pow(abs(q.x),12.0)+pow(abs(q.y),12.0)))*25.0,0.0,1.0);
+  vec2 t=q*0.5+0.5; vec2 lc=t*uL; vec2 cell=floor(lc); vec2 f=fract(lc)-0.5;
+  float s=texture2D(uS,(cell+0.5)/uL).r;
+  float d=exp(-0.5*(f.x*f.x/0.09+f.y*f.y/0.0576));
+  float g=s*d+uHalo*(0.30*texture2D(uA,t).r+0.20*texture2D(uB,t).r+0.12*texture2D(uC,t).r);
+  g=1.0-exp(-1.5*g*uBright);
+  float gz=step(uGreen,lc.y);
+  vec3 col=mix(vec3(0.90,0.95,1.0),uGel,gz);
+  vec3 rgb=g*col+vec3(0.028*uBright)+gz*uGel*0.03*uBright;
+  rgb*=clamp(1.0-0.32*pow(r2,1.4),0.0,1.0);
+  rgb+=uRefl*0.07*exp(-((p.x+0.45)*(p.x+0.45)/0.12+(p.y+0.55)*(p.y+0.55)/0.05));
+  float n=fract(sin(dot(gl_FragCoord.xy+fract(uTime)*61.0,vec2(12.9898,78.233)))*43758.5453);
+  rgb=clamp(rgb+(n-0.5)*0.014,0.0,1.0);
+  gl_FragColor=vec4(rgb*m,m);
+}`;
+function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(s); return s; }
+const prog = gl.createProgram();
+gl.attachShader(prog, sh(gl.VERTEX_SHADER, VSH)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FSH));
+gl.linkProgram(prog); gl.useProgram(prog);
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+const aLoc = gl.getAttribLocation(prog, 'a'); gl.enableVertexAttribArray(aLoc);
+gl.vertexAttribPointer(aLoc, 2, gl.FLOAT, false, 0, 0);
+const U = {}; ['uS','uA','uB','uC','uL','uRect','uBright','uHalo','uCurv','uRefl','uGreen','uTime','uGel']
+  .forEach(n => U[n] = gl.getUniformLocation(prog, n));
+const tex = [0, 1, 2, 3].map(i => { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + i);
+  gl.bindTexture(gl.TEXTURE_2D, t); const flt = i === 0 ? gl.NEAREST : gl.LINEAR;
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, flt); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, flt);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return t; });
+gl.uniform1i(U.uS, 0); gl.uniform1i(U.uA, 1); gl.uniform1i(U.uB, 2); gl.uniform1i(U.uC, 3);
+let rect = [0, 0, 1, 1];
+
+/* ================= Mise en place selon le mode ================= */
+function setupMode() {
+  const dpr = window.devicePixelRatio || 1;
+  const cw = Math.round(innerWidth * dpr), ch = Math.round(innerHeight * dpr);
+  cv.width = cw; cv.height = ch;
+  document.body.classList.toggle('centre', opts.mode === 1);
+  if (opts.mode === 1) {                 // écran vertical de borne, centré
+    W = 224; H = 256;
+    const h = Math.round(ch * 0.92), w = Math.round(h * W / H);
+    rect = [Math.round((cw - w) / 2), Math.round((ch - h) / 2), w, h];
+    const b = document.getElementById('bezel'), m = 12;
+    Object.assign(b.style, { left: (rect[0] / dpr - m) + 'px', top: (rect[1] / dpr - m) + 'px',
+      width: (w / dpr + 2 * m) + 'px', height: (h / dpr + 2 * m) + 'px' });
+  } else {                               // étiré sur toute la largeur
+    H = 240; W = Math.max(300, Math.round(H * cw / ch));
+    rect = [0, 0, cw, ch];
+  }
+  const wide = W > 300;
+  GREEN_TOP = H - 70; GROUND = H - 21; PY = H - 44;
+  COLS = wide ? 11 : 7; SP = wide ? 30 : 27; Y0 = wide ? 34 : 40; RG = wide ? 18 : 19; VS = wide ? 3 : 5;
+  fb = new Float32Array(W * H);
+  cS.width = W; cS.height = H; img = xS.createImageData(W, H);
+  blurC.forEach(b => { b.c.width = W; b.c.height = H; });
+  stars = []; for (let k = 0; k < W * 0.2; k++)
+    stars.push({ x: (Math.random() * (W - 8) + 4) | 0, y: (28 + Math.random() * (GREEN_TOP - 36)) | 0,
+                 v: 0.18 + Math.random() * 0.27, f: 0.5 + Math.random() * 2, p: Math.random() * 6.3 });
+  groundH = []; for (let x = 0; x < W; x++)
+    groundH.push(Math.round(3 + 2 * Math.sin(x / (wide ? 11 : 9)) + 1.5 * Math.sin(x / (wide ? 4.1 : 3.7) + 1)));
+  newGame();
+}
+
+/* ================= Le jeu (démo automatique) ================= */
+let G, TOP = 8800;
+function newGame() { G = { score: 0, lives: 3, wave: 0, t: 0, over: 0, expl: [], bolts: [] }; newWave(); spawnPlayer(); }
+function newWave() {
+  G.wave++; G.aliens = [];
+  for (let k = 0; k < 4; k++) for (let i = 0; i < COLS; i++) G.aliens.push({ k, i, alive: true });
+  G.formT = 0; G.bolts = []; G.waveDelay = 0; G.fire = 1.5; G.target = null;
+}
+function spawnPlayer() { G.px = W / 2; G.laser = null; G.dead = 0; G.cool = 0.6; }
+
+function formation() {
+  const fw = (COLS - 1) * SP + 6 + 13;
+  const A = Math.max(0, (W - fw) / 2 - 12);
+  const sway = A * Math.sin(G.formT * 0.6 * (1 + 0.1 * (G.wave - 1)));
+  const maxDesc = Math.max(0, (GREEN_TOP - 26) - (Y0 + 3 * RG + ((COLS - 1) / 2) * VS + 8));
+  return { x0: (W - fw) / 2 + sway, desc: Math.min(G.formT * 0.8, maxDesc) };
+}
+function alienBox(a, fm) {
+  const spr = KINDS[a.k][0], w = spr[0].length;
+  const x = fm.x0 + a.i * SP + (a.k % 2) * 6 - (w - 11) / 2;
+  const y = Y0 + a.k * RG + Math.abs(a.i - (COLS - 1) / 2) * VS + fm.desc + Math.sin(G.t * 2 + a.i * 0.7);
+  return { x, y, w, h: spr.length };
+}
+
+function update(dt) {
+  G.t += dt; G.formT += dt;
+  G.expl.forEach(e => e.t -= dt); G.expl = G.expl.filter(e => e.t > 0);
+  if (G.over > 0) { G.over -= dt; if (G.over <= 0) newGame(); return; }
+  const fm = formation();
+  const alive = G.aliens.filter(a => a.alive);
+
+  // tirs ennemis
+  G.fire -= dt;
+  if (G.fire <= 0 && alive.length && G.dead <= 0) {
+    G.fire = (0.5 + Math.random() * 0.9) / (1 + 0.15 * (G.wave - 1));
+    if (G.bolts.length < 5) {
+      const cols = [...new Set(alive.map(a => a.i))], c = cols[(Math.random() * cols.length) | 0];
+      const low = alive.filter(a => a.i === c).sort((a, b) => b.k - a.k)[0], bx = alienBox(low, fm);
+      G.bolts.push({ x: bx.x + bx.w / 2 - 1, y: bx.y + bx.h });
+    }
+  }
+  G.bolts.forEach(b => b.y += 55 * dt);
+  G.bolts = G.bolts.filter(b => {
+    if (b.y > GROUND - 7) return false;
+    if (G.dead <= 0 && b.x + 1 > G.px - 6 && b.x + 1 < G.px + 6 && b.y + 7 >= PY + 2 && b.y <= PY + 9) {
+      G.expl.push({ x: G.px - 5, y: PY, t: 1.0 }); G.dead = 1.6; G.lives--; G.laser = null; return false;
+    }
+    return true;
+  });
+
+  // joueur piloté automatiquement
+  if (G.dead > 0) {
+    G.dead -= dt;
+    if (G.dead <= 0) { if (G.lives < 0) { G.over = 3; G.dead = 1; } else spawnPlayer(); }
+  } else {
+    G.cool -= dt;
+    let danger = null;
+    for (const b of G.bolts) if (b.y > PY - 45 && Math.abs(b.x + 1 - G.px) < 10) { danger = b; break; }
+    let tx = G.px;
+    if (danger) {
+      let dir = (danger.x + 1 < G.px) ? 1 : -1;
+      if (G.px + dir * 20 > W - 14 || G.px + dir * 20 < 14) dir = -dir;
+      tx = G.px + dir * 20;
+    } else if (alive.length) {
+      if (!G.target || !G.target.alive) {
+        let best = null, bd = 1e9;
+        for (const a of alive) { const bx = alienBox(a, fm), d = Math.abs(bx.x + bx.w / 2 - G.px) - a.k * 8;
+          if (d < bd) { bd = d; best = a; } }
+        G.target = best;
+      }
+      const bx = alienBox(G.target, fm); tx = bx.x + bx.w / 2;
+    }
+    const sp = 70 * dt;
+    G.px += Math.max(-sp, Math.min(sp, tx - G.px));
+    G.px = Math.max(14, Math.min(W - 14, G.px));
+    if (!danger && !G.laser && G.cool <= 0 && Math.abs(tx - G.px) < 3) {
+      G.laser = { x: Math.round(G.px), y: PY - 4 }; G.cool = 0.35;
+    }
+  }
+
+  // laser du joueur
+  if (G.laser) {
+    G.laser.y -= 210 * dt;
+    for (const a of alive) {
+      const bx = alienBox(a, fm);
+      if (G.laser.x >= bx.x && G.laser.x < bx.x + bx.w && G.laser.y < bx.y + bx.h && G.laser.y + 6 > bx.y) {
+        a.alive = false; G.score += PTS[a.k];
+        G.expl.push({ x: bx.x + bx.w / 2 - 5.5, y: bx.y - 0.5, t: 0.3 });
+        G.laser = null; break;
+      }
+    }
+    if (G.laser && G.laser.y < 24) G.laser = null;
+  }
+  TOP = Math.max(TOP, G.score);
+
+  if (!G.aliens.some(a => a.alive)) {
+    if (!G.waveDelay) G.waveDelay = 1.5;
+    G.waveDelay -= dt; if (G.waveDelay <= 0) newWave();
+  }
+}
+
+function draw() {
+  fb.fill(0);
+  text('PTS', 14, 4); text(pad5(G.score), 14, 14);
+  text('TOP', W - 44, 4); text(pad5(TOP), W - 44, 14);
+  for (const s of stars) px(s.x, s.y, s.v * (0.7 + 0.3 * Math.sin(G.t * s.f + s.p)));
+  const fm = formation(), fr = Math.floor(G.t * 2) % 2;
+  for (const a of G.aliens) if (a.alive) { const bx = alienBox(a, fm); blit(KINDS[a.k][fr], bx.x, bx.y); }
+  for (const e of G.expl) blit(BURST, e.x, e.y);
+  const bf = Math.floor(G.t * 8) % 2;
+  for (const b of G.bolts) blit(BOLT[bf], b.x, b.y);
+  if (G.laser) for (let j = 0; j < 6; j++) px(G.laser.x, Math.round(G.laser.y) + j, 1);
+  if (G.dead <= 0 && G.over <= 0) blit(SHIP, G.px - 6, PY);
+  for (let x = 0; x < W; x++) px(x, GROUND - 1 - groundH[x], 1);
+  for (let x = 0; x < W; x++) px(x, GROUND, 1);
+  const l = Math.max(0, G.lives);
+  text(String(l), 14, H - 14);
+  for (let k = 0; k < Math.min(l - 1, 4); k++) blit(MINI, 26 + k * 10, H - 13);
+  text('CREDIT 00', W - 14 - 54, H - 14);
+  if (G.over > 0) text('GAME OVER', Math.round((W - 54) / 2), GREEN_TOP - 30);
+
+  const d = img.data;
+  for (let i = 0, j = 0; i < fb.length; i++, j += 4) {
+    const v = fb[i] >= 1 ? 255 : (fb[i] * 255) | 0; d[j] = d[j + 1] = d[j + 2] = v; d[j + 3] = 255;
+  }
+  xS.putImageData(img, 0, 0);
+  for (const b of blurC) { b.x.filter = 'none'; b.x.fillStyle = '#000'; b.x.fillRect(0, 0, W, H);
+    b.x.filter = 'blur(' + b.r + 'px)'; b.x.drawImage(cS, 0, 0); }
+}
+
+function render(time) {
+  const srcs = [cS, blurC[0].c, blurC[1].c, blurC[2].c];
+  srcs.forEach((s, i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, tex[i]);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, s); });
+  gl.viewport(0, 0, cv.width, cv.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.viewport(rect[0], rect[1], rect[2], rect[3]);
+  gl.uniform2f(U.uL, W, H); gl.uniform4f(U.uRect, rect[0], rect[1], rect[2], rect[3]);
+  gl.uniform1f(U.uBright, opts.bright); gl.uniform1f(U.uHalo, opts.halo); gl.uniform1f(U.uCurv, opts.curv);
+  gl.uniform1f(U.uRefl, opts.refl); gl.uniform1f(U.uGreen, GREEN_TOP); gl.uniform1f(U.uTime, time);
+  gl.uniform3f(U.uGel, opts.gel[0], opts.gel[1], opts.gel[2]);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+/* ================= Boucle ================= */
+let last = performance.now(), acc = 0;
+function frame(now) {
+  acc += Math.min(0.1, (now - last) / 1000) * opts.speed; last = now;
+  const STEP = 1 / 60;
+  while (acc >= STEP) { update(STEP); acc -= STEP; }
+  draw(); render(now / 1000);
+  requestAnimationFrame(frame);
+}
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(setupMode, 200); });
+setupMode();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

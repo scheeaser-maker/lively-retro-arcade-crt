@@ -1,0 +1,14 @@
+{
+  "AppVersion": "2.0.6.1",
+  "Title": "Star Sentry CRT",
+  "Thumbnail": "thumbnail.jpg",
+  "Preview": null,
+  "Desc": "Borne d'arcade façon années 70 sur tube cathodique : points lumineux, halo, bande de gélatine verte. Démo jouée automatiquement.",
+  "Author": "Arnaud Scheenaerts",
+  "License": "Usage personnel",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": null,
+  "IsAbsolutePath": false
+}

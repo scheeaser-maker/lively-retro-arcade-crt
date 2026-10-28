@@ -1,0 +1,50 @@
+{
+  "affichage": {
+    "type": "dropdown",
+    "text": "Affichage",
+    "items": ["Étiré sur toute la largeur", "Centré (écran de borne vertical)"],
+    "value": 0
+  },
+  "luminosite": {
+    "type": "slider",
+    "text": "Luminosité",
+    "min": 10,
+    "max": 200,
+    "step": 1,
+    "value": 100
+  },
+  "halo": {
+    "type": "slider",
+    "text": "Halo lumineux",
+    "min": 0,
+    "max": 200,
+    "step": 1,
+    "value": 100
+  },
+  "courbure": {
+    "type": "slider",
+    "text": "Courbure du tube",
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "value": 50
+  },
+  "couleurBande": {
+    "type": "color",
+    "text": "Couleur de la bande du bas",
+    "value": "#38FF61"
+  },
+  "reflet": {
+    "type": "checkbox",
+    "text": "Reflet sur la vitre",
+    "value": true
+  },
+  "vitesse": {
+    "type": "slider",
+    "text": "Vitesse du jeu",
+    "min": 25,
+    "max": 200,
+    "step": 1,
+    "value": 100
+  }
+}
