@@ -10,7 +10,7 @@ Aliens, vaisseau et nom « Star Sentry » sont des créations originales.
 
 ## Installation
 
-1. Cliquer sur `StarSentry_CRT_Lively.zip` dans la liste des fichiers ci-dessus, puis sur le bouton de téléchargement.
+1. Télécharger `lively-retro-arcade_CRT_.zip` dans **Releases** (colonne de droite de cette page), sous « Assets ».
 2. Le faire glisser dans la fenêtre de Lively Wallpaper.
 3. Cliquer sur la vignette « Star Sentry CRT » pour l'appliquer.
 
@@ -36,8 +36,8 @@ Fonctionne à toutes les résolutions (testé en 2560×1440). Comme tout fond Li
 - `LivelyInfo.json` — description du fond pour Lively
 - `LivelyProperties.json` — les réglages
 - `thumbnail.jpg` — la vignette
-- `StarSentry_CRT_Lively.zip` — les 4 fichiers ci-dessus, prêts à glisser dans Lively
+- `lively-retro-arcade_CRT_.zip` — les 4 fichiers ci-dessus, prêts à glisser dans Lively (aussi disponible dans Releases)
 
 ---
 
-*Animated retro arcade wallpaper for Lively Wallpaper, with a realistic CRT effect (phosphor dots, glow, curved glass, green overlay strip). Original sprites. Download StarSentry_CRT_Lively.zip from the file list and drag it into Lively to install.*
+*Animated retro arcade wallpaper for Lively Wallpaper, with a realistic CRT effect (phosphor dots, glow, curved glass, green overlay strip). Original sprites. Download lively-retro-arcade_CRT_.zip from Releases and drag it into Lively to install.*
